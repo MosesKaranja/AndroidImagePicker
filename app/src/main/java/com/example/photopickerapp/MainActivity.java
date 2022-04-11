@@ -14,6 +14,8 @@ import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -32,10 +34,14 @@ import com.google.android.material.textfield.TextInputLayout;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 
 
 public class MainActivity extends AppCompatActivity {
+
+    String currentImagePath = null;
 
     TextInputLayout textFieldVehicleRegistration, textFieldOffender, textFieldOffenses, textFieldDescription,textFieldOffences_menu,textFieldDL_Number_or_IDNumber;
     Button buttonSubmit,buttonAddOffender, buttonAddOffences, buttonWitnessReport, buttonAddPhotos, buttonTakeAlbumPhoto,button_submit_offence;
@@ -49,7 +55,10 @@ public class MainActivity extends AppCompatActivity {
     private String[] PERMISSIONS;
     private ImageView fileReportImageView;
     private String tempImageFilePath = "";
-    private Uri imageViewUri;
+    //private Uri imageViewUri;
+
+    private Uri takePhotoFileUri;
+    private String takePhotoFileImagePath="";
 
 
     String selectedOffence = "";
@@ -60,9 +69,32 @@ public class MainActivity extends AppCompatActivity {
     ActivityResultLauncher<String> startForResultHere = registerForActivityResult(new ActivityResultContracts.GetContent(), new ActivityResultCallback<Uri>() {
         @Override
         public void onActivityResult(Uri result) {
-            Log.i("InsideOnResultTrue","Inside Boolean True Here");
-            Log.i("GetPath",result.getPath());
-            Log.i("tempImageFilePath",tempImageFilePath);
+
+            if (result != null){
+
+                fileReportImageView.setImageURI(result);
+
+                Log.i("LogUriResult", String.valueOf(result));
+
+                Log.i("InsideOnResultTrue","Inside Boolean True Here");
+                Log.i("GetPath",result.getPath());
+                Log.i("EncodedPath",result.getEncodedPath());
+                Log.i("GetAuthority",result.getAuthority());
+                Log.i("tempImageFilePath",tempImageFilePath);
+
+                Bitmap bitmap = BitmapFactory.decodeFile(result.getPath());
+
+            }
+            else{
+                //Toast.success(getApplicationContext(),"Result is Ok", Toast.LENGTH_SHORT, true).show();
+                Toast.makeText(getApplicationContext(),"You Haven't taken a picture.", Toast.LENGTH_LONG).show();
+
+            }
+
+
+
+
+
 
             //imageView.setImageURI(Uri.parse(tempImageFilePath));
 
@@ -76,10 +108,16 @@ public class MainActivity extends AppCompatActivity {
 
             if (result){
                 Log.i("InsideOnResultTrue","Inside Boolean True");
+                Log.i("TakePhotoFileUriInBool", String.valueOf(takePhotoFileUri));
+                Log.i("Here","Here");
+                Log.i("TakePhotoFileImagePath",takePhotoFileImagePath);
+                Log.i("Here","Here");
                 //imageView.setImageURI(imageViewUri);
+                fileReportImageView.setImageURI(takePhotoFileUri);
 
             }
             else{
+                Toast.makeText(getApplicationContext(),"You Haven't taken a picture.", Toast.LENGTH_LONG).show();
                 Log.i("InsideOnResultFalse","Inside Boolean False");
 
             }
@@ -135,7 +173,11 @@ public class MainActivity extends AppCompatActivity {
                     ActivityCompat.requestPermissions(MainActivity.this, PERMISSIONS,1);
                 }
                 else{
-                    takePicture();
+                    try {
+                        takePicture();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
 
                 }
 
@@ -308,13 +350,17 @@ public class MainActivity extends AppCompatActivity {
 
             if (grantResults[0] == PackageManager.PERMISSION_GRANTED && grantResults[1] == PackageManager.PERMISSION_GRANTED && grantResults[2] == PackageManager.PERMISSION_GRANTED){
                 //Start Camera Activity
-                takePicture();
+                try {
+                    takePicture();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
 
         }
     }
 
-    public void takePicture(){
+    public void takePicture() throws IOException {
 //
 //        startForResult.launch();
 //
@@ -324,23 +370,35 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-        File fileCreateImageFile = createImageFile().getAbsoluteFile();
+        //File fileCreateImageFile = createImageFile().getAbsoluteFile();
 
-        String fileGetAbsolutePath = createImageFile().getAbsolutePath();
+        //String fileGetAbsolutePath = createImageFile().getAbsolutePath();
 
-        Log.i("FileCreateImageFile", String.valueOf(fileCreateImageFile));
-        Log.i("FileGetAbsolutePath", fileGetAbsolutePath);
+        //Log.i("FileCreateImageFile", String.valueOf(fileCreateImageFile));
+        //Log.i("FileGetAbsolutePath", fileGetAbsolutePath);
 
-        Uri file = FileProvider.getUriForFile(this,"com.example.photopickerapp.provider", new File(fileGetAbsolutePath));
+        File myImageFile = getImageFile();
 
-        tempImageFilePath = file.getPath();
+        takePhotoFileUri = FileProvider.getUriForFile(this,"com.example.photopickerapp.provider",myImageFile);
+
+        takePhotoFileImagePath = myImageFile.getAbsolutePath();
+
+        Log.i("FileIsHere", String.valueOf(takePhotoFileUri));
+
+        //tempImageFilePath = file.getPath();
+
+        fileReportImageView.setImageURI(takePhotoFileUri);
 
 
-        Log.i("FileGetPath",file.getPath());
-        tempImageFilePath = file.getPath();
+        //Log.i("FileGetPath",file.getPath());
+        //Log.i("ActualUrlFileObject", String.valueOf(file+file.getPath()));
+        //tempImageFilePath = file.getPath();
         //imageView.setImageURI(Uri.parse(file.getPath()));
 
-        startForResult.launch(file);
+        startForResult.launch(takePhotoFileUri);
+
+
+
 
 
 
@@ -409,5 +467,14 @@ public class MainActivity extends AppCompatActivity {
 
 
 
+    }
+
+    private File getImageFile() throws IOException{
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String imageName = "jpg_"+timeStamp+"_";
+        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+
+        File imageFile = File.createTempFile(imageName, ".jpg",storageDir);
+        return imageFile;
     }
 }
