@@ -9,34 +9,51 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.FileProvider;
+import androidx.loader.content.CursorLoader;
 
 import android.Manifest;
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import android.util.Base64;
 import android.util.Log;
 import android.view.View;
+import android.webkit.MimeTypeMap;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.android.material.textfield.TextInputLayout;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.FormBody;
+import okhttp3.Interceptor;
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -47,6 +64,7 @@ public class MainActivity extends AppCompatActivity {
     Button buttonSubmit,buttonAddOffender, buttonAddOffences, buttonWitnessReport, buttonAddPhotos, buttonTakeAlbumPhoto,button_submit_offence;
 
     CircularProgressIndicator circularProgressIndicator;
+    ProgressBar progressBar;
 
     AutoCompleteTextView autoCompleteOffence, autoCompleteSelectOffender;
     ArrayAdapter arrayAdapter, arrayAdapterOffencesDetails;
@@ -58,6 +76,10 @@ public class MainActivity extends AppCompatActivity {
     //private Uri imageViewUri;
 
     private Uri takePhotoFileUri;
+    private Uri uriFromGetContent;
+    private Uri uri;
+
+    Bitmap bitmap = null;
     private String takePhotoFileImagePath="";
 
 
@@ -72,7 +94,9 @@ public class MainActivity extends AppCompatActivity {
 
             if (result != null){
 
-                fileReportImageView.setImageURI(result);
+                uriFromGetContent = result;
+
+                fileReportImageView.setImageURI(uriFromGetContent);
 
                 Log.i("LogUriResult", String.valueOf(result));
 
@@ -82,7 +106,20 @@ public class MainActivity extends AppCompatActivity {
                 Log.i("GetAuthority",result.getAuthority());
                 Log.i("tempImageFilePath",tempImageFilePath);
 
-                Bitmap bitmap = BitmapFactory.decodeFile(result.getPath());
+                //Bitmap bitmap = BitmapFactory.decodeFile(String.valueOf(result));
+
+                //Code for Converting the image Uri result to a bitmap
+//                Bitmap bitmap = null;
+//                try {
+//                    bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(),result);
+//                    fileReportImageView.setImageBitmap(bitmap);
+//
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+
+                //fileReportImageView.setImageBitmap(bitmap.);
+
 
             }
             else{
@@ -152,6 +189,10 @@ public class MainActivity extends AppCompatActivity {
         buttonTakeAlbumPhoto = findViewById(R.id.buttonAddAlbumPhotos);
         buttonWitnessReport = findViewById(R.id.buttonWitnessReport);
         button_submit_offence = findViewById(R.id.button_submit_offence);
+        progressBar = findViewById(R.id.report_progressbar);
+
+        //getActionBar().setTitle("File Report");
+        getSupportActionBar().setTitle("File Report");
 
 
         circularProgressIndicator = findViewById(R.id.fileReportProgressIndicator);
@@ -232,8 +273,8 @@ public class MainActivity extends AppCompatActivity {
 //
 //        }
 
-        //arrayAdapter = new ArrayAdapter(MainActivity.this, R.layout.option_item, offencesArrayList);
-        //arrayAdapterOffencesDetails = new ArrayAdapter(MainActivity.this, R.layout.option_item, offenderDetailsArrayList);
+        arrayAdapter = new ArrayAdapter(getApplicationContext(), R.layout.option_item, offencesArrayList);
+        arrayAdapterOffencesDetails = new ArrayAdapter(getApplicationContext(), R.layout.option_item, offenderDetailsArrayList);
 
 
         autoCompleteOffence = findViewById(R.id.autoCompleteOffence);
@@ -297,7 +338,19 @@ public class MainActivity extends AppCompatActivity {
         button_submit_offence.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                uploadReport();
+                if (takePhotoFileUri != null){
+                    uploadImage(Uri.parse(takePhotoFileImagePath));
+
+                }
+                else if (uriFromGetContent != null){
+                    uploadImage(uriFromGetContent);
+
+                }
+                else{
+                    Toast.makeText(getApplicationContext(), "None of the above launched", Toast.LENGTH_SHORT).show();
+
+                }
+
 
             }
         });
@@ -477,4 +530,383 @@ public class MainActivity extends AppCompatActivity {
         File imageFile = File.createTempFile(imageName, ".jpg",storageDir);
         return imageFile;
     }
+
+//    private void doMultiPartRequest(){
+//        String path = Environment.getExternalStorageDirectory().toString() + "/pictures";
+//        Log.d("Files","Path:" + path);
+//        File f = new File(path);
+//        File file[] = f.listFiles();
+//        Log.i("Files","Size" + file.length);
+//        for (int i=0;i < file.length;i++){
+//            if (file[i].isFile()){
+//                Log.d("OkHttpV3Files","FileName: "+ file[i].getName());
+//                DoActualRequest(File[i]);
+//                break;
+//            }
+//        }
+//
+//    }
+//
+//    private void DoActualRequest(File file){
+//        OkHttpClient client = new OkHttpClient();
+//        RequestBody body = new MultipartBody.Builder();
+//    }
+
+//    //Prabesh Upload Image
+//    private void uploadImage(){
+//        String Image = imageToString();
+//        String title = "My Title";
+//        ApiInterface apiInterface = ApiClient.getApiClient().create(ApiInterface.class);
+//        Call<ImageClass> call = apiInterface.uploadImage(title,Image);
+//        call.enqueue(new Callback<ImageClass>() {
+//            @Override
+//            public void onResponse(Call<ImageClass> call, Response<ImageClass> response) {
+//                ImageClass imageClass = response.body();
+//                Toast.makeText(MainActivity.this, "Server Response: "+imageClass.getResponse(),Toast.LENGTH_LONG).show();
+//            }
+//
+//            @Override
+//            public void onFailure(Call<ImageClass> call, Throwable t) {
+//
+//            }
+//        });
+//    }
+
+    private String imageToString(){
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG,100,byteArrayOutputStream);
+        byte[] imgByte = byteArrayOutputStream.toByteArray();
+        return Base64.encodeToString(imgByte, Base64.DEFAULT);
+
+    }
+
+    private String uriToFilename(Uri uri) {
+        String path = null;
+
+        if ((Build.VERSION.SDK_INT < 19) && (Build.VERSION.SDK_INT > 11)) {
+            path = getRealPathFromURI_API11to18(this, uri);
+        } else {
+            path = getFilePath(this, uri);
+        }
+
+        return path;
+    }
+
+    public static String getRealPathFromURI_API11to18(Context context, Uri contentUri) {
+        String[] proj = {MediaStore.Images.Media.DATA};
+        String result = null;
+        CursorLoader cursorLoader = new CursorLoader(
+                context,
+                contentUri, proj, null, null, null);
+        Cursor cursor = cursorLoader.loadInBackground();
+        if (cursor != null) {
+            int column_index =
+                    cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+            cursor.moveToFirst();
+            result = cursor.getString(column_index);
+        }
+        return result;
+    }
+
+
+    public String getFilePath(Context context, Uri uri) {
+        //Log.e("uri", uri.getPath());
+        String filePath = "";
+        if (DocumentsContract.isDocumentUri(context, uri)) {
+            String wholeID = DocumentsContract.getDocumentId(uri);
+            //Log.e("wholeID", wholeID);
+            // Split at colon, use second item in the array
+            String[] splits = wholeID.split(":");
+            if (splits.length == 2) {
+                String id = splits[1];
+
+                String[] column = {MediaStore.Images.Media.DATA};
+                // where id is equal to
+                String sel = MediaStore.Images.Media._ID + "=?";
+                Cursor cursor = context.getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                        column, sel, new String[]{id}, null);
+                int columnIndex = cursor.getColumnIndex(column[0]);
+                if (cursor.moveToFirst()) {
+                    filePath = cursor.getString(columnIndex);
+                }
+                cursor.close();
+            }
+        } else {
+            filePath = uri.getPath();
+        }
+        return filePath;
+    }
+
+
+    public void uploadImage(Uri parameterUri){
+
+        if(parameterUri == null){
+            Toast.makeText(getApplicationContext(),"Image Uri is Null", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        final File imageFile = new File(uriToFilename(parameterUri));
+        Uri uris = Uri.fromFile(imageFile);
+        String fileExtension = MimeTypeMap.getFileExtensionFromUrl(uris.toString());
+        String mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(fileExtension.toLowerCase());
+        String imageName = imageFile.getName();
+
+        OkHttpClient client = new OkHttpClient();
+
+        //Log.e(TAG, imageFile.getName()+" "+mime+" "+uriToFilename(uri));
+        RequestBody requestBody = new MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart("file", imageName,
+                        RequestBody.create(imageFile, MediaType.parse(mime)))
+                .addFormDataPart("vehicle_Registration","kaw123")
+                .addFormDataPart("owner","Moses")
+                .addFormDataPart("offence","Drunk Driving")
+                .addFormDataPart("description","This is my description")
+                .build();
+
+//        RequestBody requestBody = new FormBody.Builder()
+//                .add("owner","Moses")
+//                .add("offence","Drunk Driving")
+//                .add("description","This is my description")
+//                .build();
+
+
+
+        final CountingRequestBody.Listener progressListener = new CountingRequestBody.Listener() {
+            @Override
+            public void onRequestProgress(long bytesRead, long contentLength) {
+                if (bytesRead >= contentLength) {
+                    if (progressBar != null)
+                        MainActivity.this.runOnUiThread(new Runnable() {
+                            public void run() {
+                                progressBar.setVisibility(View.GONE);
+                            }
+                        });
+                } else {
+                    if (contentLength > 0) {
+                        final int progress = (int) (((double) bytesRead / contentLength) * 100);
+                        if (progressBar != null)
+                            MainActivity.this.runOnUiThread(new Runnable() {
+                                public void run() {
+                                    progressBar.setVisibility(View.VISIBLE);
+                                    progressBar.setProgress(progress);
+                                }
+                            });
+
+                        if(progress >= 100){
+                            progressBar.setVisibility(View.GONE);
+                        }
+                        Log.e("uploadProgress called", progress+" ");
+                    }
+                }
+            }
+        };
+
+        OkHttpClient imageUploadClient = new OkHttpClient.Builder()
+                .addNetworkInterceptor(new Interceptor() {
+                    @Override
+                    public okhttp3.Response intercept(Chain chain) throws IOException {
+                        Request originalRequest = chain.request();
+
+                        if (originalRequest.body() == null) {
+                            return chain.proceed(originalRequest);
+                        }
+                        Request progressRequest = originalRequest.newBuilder()
+                                .method(originalRequest.method(),
+                                        new CountingRequestBody(originalRequest.body(), progressListener))
+                                .build();
+
+                        return chain.proceed(progressRequest);
+
+                    }
+                })
+                .build();
+
+
+
+        Request request = new Request.Builder()
+                .url("http://172.16.40.161:8000/api/admin/incident/createIncident")
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json")
+                .post(requestBody)
+                .build();
+
+
+
+
+
+
+
+
+
+        Call call2 = imageUploadClient.newCall(request);
+
+
+        call2.enqueue(new Callback() {
+            @Override
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+
+                MainActivity.this.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        String mMessage = e.getMessage().toString();
+                        Toast.makeText(MainActivity.this, "Error uploading file", Toast.LENGTH_LONG).show();
+                        Log.e("failure Response", mMessage);
+                    }
+                });
+
+            }
+
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+
+                MainActivity.this.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(MainActivity.this, "Success Uploading Image", Toast.LENGTH_LONG).show();
+
+                    }
+                });
+
+
+                try {
+                    Log.i("BodyString",response.body().string());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+            }
+        });
+
+
+
+//        Call call = client.newCall(request);
+//
+//        call.enqueue(new Callback() {
+//            @Override
+//            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+//
+//                MainActivity.this.runOnUiThread(new Runnable() {
+//                    @Override
+//                    public void run() {
+//
+//                        String mMessage = e.getMessage().toString();
+//                        Toast.makeText(MainActivity.this, "Error uploading file", Toast.LENGTH_LONG).show();
+//                        Log.e("failure Response", mMessage);
+//                    }
+//                });
+//
+//
+//            }
+//
+//            @Override
+//            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+//
+//                MainActivity.this.runOnUiThread(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        Toast.makeText(MainActivity.this, "Success Uploading Image", Toast.LENGTH_LONG).show();
+//
+//                    }
+//                });
+//
+//
+//                try {
+//                    Log.i("BodyString",response.body().string());
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+//
+//
+//            }
+//        });
+
+
+
+//
+//        imageUploadClient.newCall(request).enqueue(new Callback() {
+//            @Override
+//            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+//                String mMessage = e.getMessage().toString();
+//                //Toast.makeText(ChatScreen.this, "Error uploading file", Toast.LENGTH_LONG).show();
+//                Log.e("failure Response", mMessage);
+//
+//            }
+//
+//            @Override
+//            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+//                final String mMessage = response.body().toString();
+//
+//                MainActivity.this.runOnUiThread(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        //Log.e(TAG, mMessage);
+//                        progressBar.setVisibility(View.GONE);
+//                        //upload.setVisibility(View.GONE);
+//                    }
+//                });
+//
+//            }
+//
+//
+//
+//
+//
+//
+//
+//
+//
+////            @Override
+////            public void onFailure(retrofit2.Call call, IOException e) {
+////                String mMessage = e.getMessage().toString();
+////                //Toast.makeText(ChatScreen.this, "Error uploading file", Toast.LENGTH_LONG).show();
+////                Log.e("failure Response", mMessage);
+////            }
+//
+////            @Override
+////            public void onResponse(retrofit2.Call call, retrofit2.Response response) {
+////                final String mMessage = response.body().toString();
+////
+////                MainActivity.this.runOnUiThread(new Runnable() {
+////                    @Override
+////                    public void run() {
+////                        //Log.e(TAG, mMessage);
+////                        progressBar.setVisibility(View.GONE);
+////                        //upload.setVisibility(View.GONE);
+////                    }
+////                });
+////            }
+////
+////            /**
+////             * Invoked when a network exception occurred talking to the server or when an unexpected
+////             * exception occurred creating the request or processing the response.
+////             *
+////             * @param call
+////             * @param t
+////             */
+////            @Override
+////            public void onFailure(retrofit2.Call call, Throwable t) {
+//////                String mMessage = t.getMessage().toString();
+//////                //Toast.makeText(ChatScreen.this, "Error uploading file", Toast.LENGTH_LONG).show();
+//////                Log.e("failure Response", mMessage);
+////
+////            }
+//        });
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+
+
 }
